@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>今日のおみくじ</title>
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      text-align: center;
+      background: #f5f5f5;
+      margin: 0;
+      padding: 0;
+      overflow-x: hidden;
+    }
+    h1 {
+      margin: 20px;
+      font-size: 2em;
+      color: #333;
+    }
+    #omikujiContainer {
+      position: relative;
+      height: 80px;
+      margin: 40px auto;
+      width: 900px;
+      overflow: hidden;
+      border-top: 2px solid #ccc;
+      border-bottom: 2px solid #ccc;
+    }
+    #omikujiList {
+      display: flex;
+      transition: transform 1s ease-in-out;
+    }
+    .slot {
+      flex: 0 0 300px;
+      font-size: 2em;
+      text-align: center;
+      opacity: 0.5;
+      color: #555;
+    }
+    #result {
+      margin-top: 20px;
+      font-size: 1.2em;
+      color: #444;
+      min-height: 2em;
+      white-space: pre-line;
+      line-height: 1.4em;
+    }
+    #result .fortuneName {
+      font-size: 2em;
+      font-weight: bold;
+      color: red;
+      display: block;
+    }
+    button {
+      margin-top: 30px;
+      padding: 10px 20px;
+      font-size: 1.2em;
+      background: #ff9900;
+      border: none;
+      border-radius: 5px;
+      color: #fff;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    button:hover { background: #e68a00; }
+
+    /* 花火動画（YouTube iframe） */
+    #fireworksFrame {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 9999;
+      display: none;
+      border: none;
+    }
+
+    /* 運勢画像 */
+    .fortuneImage {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      width: 70%;
+      height: auto;
+      transform: translate(-50%, -50%);
+      z-index: 9998;
+      display: none;
+      box-shadow: 0 0 20px rgba(0,0,0,0.7);
+      border-radius: 8px;
+      background: rgba(0,0,0,0.4);
+    }
+  </style>
+</head>
+<body>
+  <h1>今日のおみくじ</h1>
+
+  <!-- 花火動画 iframe：最初は src を空にしておく -->
+  <iframe id="fireworksFrame"
+        src=""
+        title="花火動画"
+        allow="autoplay; encrypted-media"
+        allowfullscreen>
+  </iframe>
+
+  <!-- 運勢画像 -->
+  <img id="fortuneImage" class="fortuneImage" src="" alt="fortune background">
+
+  <div id="omikujiContainer"><div id="omikujiList"></div></div>
+  <div id="result"></div>
+  <button id="drawBtn">おみくじを引く</button>
+
+  <script>
+    const fortunes = [
+      { name:"至高吉", prob:12.5 }, { name:"特大吉", prob:12.5 },
+      { name:"大吉",  prob:12.5 },  { name:"中吉",  prob:12.5 },
+      { name:"小吉",  prob:12.5 },  { name:"吉",    prob:12.5 },
+      { name:"末吉",  prob:12.5 },  { name:"凶",    prob:12.5 }
+    ];
+
+    const comments = {
+      "至高吉": ["明るい未来が開けています。\n人との出会いにも恵まれます。"],
+      "特大吉": ["大きな幸運が訪れています。"],
+      "大吉": ["今日のあなたは勢いがあります。"],
+      "中吉": ["計画的な行動が吉。"],
+      "小吉": ["今日の行動はゆっくり確実に。"],
+      "吉": ["穏やかな日々が続きます。"],
+      "末吉": ["今日は少し慎重に行動しましょう。"],
+      "凶": ["今日は慎重に過ごすことが大切です。"]
+    };
+
+    const luckyColors = [
+      { name:"ゴールド",code:"#FFD700" },
+      { name:"レッド",code:"#FF0000" },
+      { name:"シルバー",code:"#C0C0C0" },
+      { name:"ブルー",code:"#0000FF" }
+    ];
+
+    const luckyItems = ["四つ葉のクローバー","赤い傘","青い石","小さなお守り"];
+
+    const fortuneImages = {
+      "特大吉":"IMG_0102.JPG",
+      "大吉":"IMG_0103.JPG",
+      "中吉":"IMG_0104.JPG",
+      "小吉":"IMG_0105.JPG",
+      "吉":"IMG_0106.JPG",
+      "末吉":"IMG_0107.JPG",
+      "凶":"IMG_0108.JPG"
+    };
+
+    const omikujiList = document.getElementById("omikujiList");
+    const resultDiv = document.getElementById("result");
+    const drawBtn = document.getElementById("drawBtn");
+    const fortuneImage = document.getElementById("fortuneImage");
+    const frame = document.getElementById("fireworksFrame");
+
+    const slotWidth = 300;
+
+    function spinSequence(center) {
+      const sequence = [];
+      for (let i = 0; i < 5; i++) sequence.push(...fortunes.map(f => f.name));
+      sequence.push(center);
+
+      omikujiList.innerHTML = "";
+      sequence.forEach(f => {
+        const d = document.createElement("div");
+        d.className = "slot";
+        d.textContent = f;
+        omikujiList.appendChild(d);
+      });
+
+      // 中央で止まるようにオフセット調整
+      const containerWidth = document.getElementById("omikujiContainer").offsetWidth;
+      const targetIndex = sequence.length - 1;
+      const offset = -(targetIndex * slotWidth - (containerWidth - slotWidth) / 2);
+
+      omikujiList.style.transition = "transform 9s cubic-bezier(0.25,1,0.5,1)";
+      omikujiList.style.transform = `translateX(${offset}px)`;
+
+      setTimeout(() => showResult(center), 9000);
+    }
+
+    function showResult(center) {
+      const commentArr = comments[center];
+      const comment = commentArr[Math.floor(Math.random() * commentArr.length)];
+      const luckyColor = luckyColors[Math.floor(Math.random() * luckyColors.length)];
+      const luckyItem = luckyItems[Math.floor(Math.random() * luckyItems.length)];
+
+      resultDiv.innerHTML =
+        `<span class="fortuneName">${center}</span>\n` +
+        `<span class="fortuneComment">${comment}</span>`;
+
+      setTimeout(() => {
+        resultDiv.innerHTML +=
+          `\n<span style="color:${luckyColor.code};font-weight:bold;">ラッキーカラー：${luckyColor.name}</span>`;
+      }, 2000);
+
+      setTimeout(() => {
+        resultDiv.innerHTML +=
+          `\n<span style="font-weight:bold;">ラッキーアイテム：${luckyItem}</span>`;
+      }, 4000);
+
+      // 特別演出
+      if (center === "至高吉") {
+        setTimeout(() => {
+          frame.src = "https://www.youtube.com/embed/fmmNpOd6saY?autoplay=1";
+          frame.style.display = "block";
+          setTimeout(() => {
+            frame.style.display = "none";
+            frame.src = ""; // 終了後リセット
+          }, 8000);
+        }, 2000);
+      } else if (fortuneImages[center]) {
+        setTimeout(() => {
+          fortuneImage.src = fortuneImages[center];
+          fortuneImage.style.display = "block";
+          setTimeout(() => {
+            fortuneImage.style.display = "none";
+          }, 5000);
+        }, 2000);
+      }
+
+      drawBtn.disabled = false;
+    }
+
+    function drawOmikuji() {
+      resultDiv.textContent = "";
+      drawBtn.disabled = true;
+
+      const rand = Math.random() * 100;
+      let cumulative = 0, selected = fortunes[0].name;
+      for (const f of fortunes) {
+        cumulative += f.prob;
+        if (rand <= cumulative) {
+          selected = f.name;
+          break;
+        }
+      }
+      spinSequence(selected);
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      drawBtn.addEventListener("click", drawOmikuji);
+    });
+  </script>
+</body>
+</html>
